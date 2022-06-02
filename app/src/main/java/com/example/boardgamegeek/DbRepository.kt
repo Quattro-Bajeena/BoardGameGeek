@@ -29,6 +29,7 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
         val TABLE_GAMERANKING = "GameRanking"
         val COLUMN_RANKINGID = "id"
+        val COLUMN_RANKINGGAMEID = "game_id"
         val COLUMN_RANKINGDATE = "date"
         val COLUMN_RANKINGRANK = "ranking"
 
@@ -55,7 +56,8 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
         val CREATE_RANKING_TABLE = ("CREATE TABLE " +
                 TABLE_GAMERANKING+"("+
-                COLUMN_RANKINGID+" TEXT PRIMARY KEY," +
+                COLUMN_RANKINGID+" INTEGER PRIMARY KEY AUTOINCREMENT," +
+                COLUMN_RANKINGGAMEID+" TEXT," +
                 COLUMN_RANKINGDATE+" TEXT,"+
                 COLUMN_RANKINGRANK+" TEXT"+")"
                 )
@@ -67,6 +69,8 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_GAMES")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_USER")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_GAMERANKING")
         onCreate(db)
     }
 
@@ -134,9 +138,19 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
         db.close()
     }
 
-    fun getGames() : MutableList<Game>{
+    fun getGames(category: String) : MutableList<Game>{
         val games = mutableListOf<Game>()
-        val query = "SELECT * FROM $TABLE_GAMES"
+
+        val query = when (category) {
+            "expansions" -> {
+                "SELECT * FROM $TABLE_GAMES WHERE $COLUMN_GAMESUBTYPE = 'boardgameexpansion'"
+            }
+            else -> {
+                 "SELECT * FROM $TABLE_GAMES WHERE $COLUMN_GAMESUBTYPE = 'boardgame'"
+            }
+        }
+
+
         val db = this.writableDatabase
         val cursor = db.rawQuery(query, null)
 
@@ -160,6 +174,8 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
     }
 
 
+
+
     fun addGameRankings(sync_date: Date, games: MutableList<Game>){
         for (game in games){
             val gameRanking = GameRanking(game.id, sync_date, game.ranking)
@@ -169,7 +185,7 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
     private fun addGameRanking(gameRanking: GameRanking){
         val values = ContentValues()
-        values.put(COLUMN_RANKINGID, gameRanking.id)
+        values.put(COLUMN_RANKINGGAMEID, gameRanking.id)
         values.put(COLUMN_RANKINGDATE, dateFormat.format(gameRanking.date))
         values.put(COLUMN_RANKINGRANK, gameRanking.ranking)
         val db = this.writableDatabase
@@ -179,13 +195,13 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
     fun getGameRankings(id: String) : MutableList<GameRanking>{
         val rankings = mutableListOf<GameRanking>()
-        val query = "SELECT * FROM $TABLE_GAMERANKING WHERE $COLUMN_RANKINGID = $id"
+        val query = "SELECT * FROM $TABLE_GAMERANKING WHERE $COLUMN_RANKINGGAMEID = $id"
         val db = this.writableDatabase
         val cursor = db.rawQuery(query, null)
         if(cursor.moveToFirst()){
             while(cursor.isAfterLast == false){
-                val date = dateFormat.parse(cursor.getString(1))
-                val rank = cursor.getString(2)
+                val date = dateFormat.parse(cursor.getString(2))
+                val rank = cursor.getString(3)
                 val ranking = GameRanking(id, date, rank)
                 rankings.add(ranking)
                 cursor.moveToNext()
@@ -197,7 +213,7 @@ class DbRepository(context: Context, name: String?, factory: SQLiteDatabase.Curs
 
 
 
-    fun resetDatabase(){
+    fun clearData(){
         onUpgrade(this.writableDatabase, 0,0)
     }
 

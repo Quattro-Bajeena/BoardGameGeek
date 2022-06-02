@@ -1,10 +1,11 @@
-package com.example.boardgamegeek
+package com.example.boardgamegeek.activities
 
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.example.boardgamegeek.DbRepository
+import com.example.boardgamegeek.UserDownloader
 import com.example.boardgamegeek.databinding.ActivityConfigureBinding
 import com.example.boardgamegeek.models.User
 import com.google.android.material.snackbar.Snackbar
@@ -56,7 +57,7 @@ class ConfigureActivity : AppCompatActivity() {
             }
             else{
                 val returnIntent = Intent()
-                setResult(RESULT_CANCELED, returnIntent)
+                setResult(2, returnIntent)
                 finish()
             }
 
