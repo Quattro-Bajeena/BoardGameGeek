@@ -1,5 +1,6 @@
 package com.example.boardgamegeek
 
+import android.os.AsyncTask
 import com.example.boardgamegeek.models.Game
 import com.example.boardgamegeek.models.User
 import org.w3c.dom.Document
@@ -8,69 +9,82 @@ import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.Exception
 import java.net.URL
 import java.util.*
 import javax.xml.parsers.DocumentBuilderFactory
 
-class UserManager {
+class UserDownloader{
 
-    val filesDirectory = "files"
-    val userFilename = "user.xml"
+    private val userFilename = "user.xml"
+    private var filesDirectory: File
 
-    var user: User? = null
     var games: MutableList<Game> = mutableListOf()
 
-    var userName: String? = null
-    var syncDate: Date? = null
+    var userName: String
+    var gameAmount: Int? = null
 
-    fun DownloadUserInfo(user_name : String){
+
+    constructor(user_name: String, files_dir:File){
         userName = user_name
-        syncDate = Calendar.getInstance().time;
-        val url = URL("https://boardgamegeek.com/xmlapi2/collection?username=$userName&stats=1")
-        val connection = url.openConnection()
-        connection.connect()
-        val lengthOfFile = connection.contentLength
-        val isStream = url.openStream()
-        val testDirectory = File(filesDirectory)
-        if(testDirectory.exists() == false) testDirectory.mkdir()
-        val fos = FileOutputStream("$testDirectory/$userFilename")
-        val data = ByteArray(1024)
-        var count = 0
-        var total:Long = 0
-        var progress = 0
-        while(count != -1){
-            total += count.toLong()
-            val progress_temp = total.toInt()*100/lengthOfFile
-            if(progress_temp%10 == 0 && progress != progress_temp){
-                progress = progress_temp
-            }
-            fos.write(data, 0, count)
-            count = isStream.read(data)
-        }
-        isStream.close()
-        fos.close()
+        filesDirectory = files_dir
     }
 
-    fun LoadCurrentUserInfo(){
+
+    fun downloadUserInfo():Boolean{
+
+        try{
+            val url = URL("https://boardgamegeek.com/xmlapi2/collection?username=$userName&stats=1")
+            val connection = url.openConnection()
+            connection.connect()
+            val lengthOfFile = connection.contentLength
+            val isStream = url.openStream()
+
+            val fos = FileOutputStream("$filesDirectory/$userFilename")
+            val data = ByteArray(1024)
+            var count = 0
+            var total:Long = 0
+            var progress = 0
+            while(count != -1){
+                total += count.toLong()
+                val progress_temp = total.toInt()*100/lengthOfFile
+                if(progress_temp%10 == 0 && progress != progress_temp){
+                    progress = progress_temp
+                }
+                fos.write(data, 0, count)
+                count = isStream.read(data)
+            }
+            isStream.close()
+            fos.close()
+            return true
+        }
+        catch (e: Exception){
+            return false
+        }
+
+    }
+
+    fun loadCurrentUserInfo(){
         val file = File("$filesDirectory/$userFilename")
         val xmlDoc: Document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
         xmlDoc.documentElement.normalize()
+
+        val root = xmlDoc.documentElement as Element
+        gameAmount = Integer.parseInt(root.getAttribute("totalitems"))
+
         val items: NodeList = xmlDoc.getElementsByTagName("item")
 
-        val gameAmount = items.length
-
-        user = User(userName!!, gameAmount, 0, syncDate!!)
 
 
-        for(i in 0..items.length-1){
+
+            for(i in 0..items.length-1){
             val itemNode: Node = items.item(i)
             if(itemNode.nodeType == Node.ELEMENT_NODE){
                 val elem = itemNode as Element
                 val children = elem.childNodes
 
-                var id: String? = elem.getAttribute("objectid")
+                var id: String? =  elem.getAttribute("objectid")
                 var name: String? = null
-                var image: String? = null
                 var thumbnail: String? = null
                 var published: String? = null
                 var ranking: String? = null
@@ -85,9 +99,6 @@ class UserManager {
                             }
                             "yearpublished" -> {
                                 published = node.textContent
-                            }
-                            "image" -> {
-                                image = node.textContent
                             }
                             "thumbnail" -> {
                                 thumbnail = node.textContent
@@ -127,8 +138,8 @@ class UserManager {
                 if(ranking == null){
                     ranking = "Not Ranked"
                 }
-                if(id != null && name != null && image != null && thumbnail != null && published != null && ranking != null && subtype != null){
-                    val game = Game(id, name, image, thumbnail, published, ranking, subtype)
+                if(id != null && name != null && thumbnail != null && published != null && ranking != null && subtype != null){
+                    val game = Game(id, name, thumbnail, published, ranking, subtype)
                     // download image?
                     games.add(game)
                 }
@@ -143,9 +154,6 @@ class UserManager {
 }
 
 fun main(args:Array<String>){
-    val downloader = UserManager()
-    downloader.userName = "loutre_on_fire"
-    downloader.syncDate = Date()
-    //downloader.DownloadUserInfo("loutre_on_fire")
-    downloader.LoadCurrentUserInfo()
+    val downloader = UserDownloader("loutre_on_fire", File("files"))
+    downloader.downloadUserInfo()
 }

@@ -5,7 +5,6 @@ import java.util.*
 data class Game (
     val id: String,
     val name: String,
-    val image: String,
     val thumbnail: String,
     val published: String,
     val ranking: String,
